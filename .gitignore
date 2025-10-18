@@ -1,5 +1,27 @@
-*conf*.json
-.DS_Store
-__pycache__
+# Databricks Asset Bundle files
+.databricks/
+
+# IDE files
+.vscode/
 .idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment files
 .env
+.env.local 

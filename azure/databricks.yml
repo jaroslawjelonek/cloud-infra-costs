@@ -1,0 +1,43 @@
+bundle:
+  name: azure_cost
+
+include:
+  - resources/*.yml
+
+sync:
+  exclude:
+    - src/*.lvdash.json
+
+variables:
+  catalog:
+    default: billing
+  schema:
+    default: azure
+  volume_name:
+    default: cost_export
+  bronze_table_name:
+    default: actuals_bronze
+  silver_table_name:
+    default: actuals_silver
+  gold_table_name:
+    default: actuals_gold
+  storage_location:
+    description: "Folder within a Storage Account's Container where Cost Export is exporting files to"
+  volume_path:
+    default: /Volumes/${var.catalog}/${var.schema}/${var.volume_name}/
+  source_file_path:
+    description: "Location in Volume where AutoLoader is reading Cost Export files from"
+    default: ${var.volume_path}*/*/*/*/*/*.parquet
+  billing_period_depth:
+    description: "Pipeline uses split_part to extract billing period (e.g. 20250901-20250930) from file source_file_path"
+    default: 8    
+  ingestion_date_depth:
+    description: "Pipeline uses split_part to extract ingestion date (e.g. 202509081628) from file source_file_path"  
+    default: 9
+  warehouse_id:
+    description: "Id of SQL warehouse that the dashboard uses"
+
+targets:
+  dev:
+    mode: development
+    default: true

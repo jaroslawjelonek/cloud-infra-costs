@@ -1,0 +1,691 @@
+{
+  "datasets": [
+    {
+      "name": "ae7776ee",
+      "displayName": "Total Cost",
+      "queryLines": [
+        "SELECT *\n",
+        "FROM billing.azure.actuals_gold"
+      ]
+    },
+    {
+      "name": "0ae67941",
+      "displayName": "Cluster TCO",
+      "queryLines": [
+        "SELECT *\n",
+        "FROM billing.azure.actuals_gold\n",
+        "LEFT JOIN system.compute.clusters\n",
+        "  ON CAST(billing.azure.actuals_gold.parsedTags:ClusterId AS STRING) = system.compute.clusters.cluster_id"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "af018652",
+      "displayName": "Total Cost",
+      "layout": [
+        {
+          "widget": {
+            "name": "0f075b0c",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ae7776ee",
+                  "fields": [
+                    {
+                      "name": "meterCategory",
+                      "expression": "`meterCategory`"
+                    },
+                    {
+                      "name": "daily(date)",
+                      "expression": "DATE_TRUNC(\"DAY\", `date`)"
+                    },
+                    {
+                      "name": "sum(price)",
+                      "expression": "SUM(`price`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(date)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "axis": {
+                    "title": "Date"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(price)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": "Price"
+                  }
+                },
+                "color": {
+                  "fieldName": "meterCategory",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "legend": {
+                    "title": "Meter Category"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "330c17ec",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6ca8d9172db91fe421be41298e_meterSubCategory",
+                "query": {
+                  "datasetName": "ae7776ee",
+                  "fields": [
+                    {
+                      "name": "meterSubCategory",
+                      "expression": "`meterSubCategory`"
+                    },
+                    {
+                      "name": "meterSubCategory_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "meterSubCategory",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6ca8d9172db91fe421be41298e_meterSubCategory"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Meter Sub Category"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "4220359d",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6ca8d9172db91fe421be41298e_parsedTags",
+                "query": {
+                  "datasetName": "ae7776ee",
+                  "fields": [
+                    {
+                      "name": "parsedTags",
+                      "expression": "`parsedTags`"
+                    },
+                    {
+                      "name": "parsedTags_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "parsedTags",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6ca8d9172db91fe421be41298e_parsedTags"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Tags"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "94586be2",
+      "displayName": "Cluster TCO",
+      "layout": [
+        {
+          "widget": {
+            "name": "7af1a10d",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "0ae67941",
+                  "fields": [
+                    {
+                      "name": "meterCategory",
+                      "expression": "`meterCategory`"
+                    },
+                    {
+                      "name": "daily(date)",
+                      "expression": "DATE_TRUNC(\"DAY\", `date`)"
+                    },
+                    {
+                      "name": "sum(price)",
+                      "expression": "SUM(`price`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(date)",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "axis": {
+                    "title": "Date"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(price)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "axis": {
+                    "title": "Price"
+                  },
+                  "displayName": "Sum of price"
+                },
+                "color": {
+                  "fieldName": "meterCategory",
+                  "scale": {
+                    "type": "categorical"
+                  },
+                  "legend": {
+                    "title": "Meter Category"
+                  },
+                  "displayName": "meterCategory"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "541c5f53",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_cluster_id",
+                "query": {
+                  "datasetName": "0ae67941",
+                  "fields": [
+                    {
+                      "name": "cluster_id",
+                      "expression": "`cluster_id`"
+                    },
+                    {
+                      "name": "cluster_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "cluster_id",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_cluster_id"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cluster Id"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "13f451f7",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_data_security_mode",
+                "query": {
+                  "datasetName": "0ae67941",
+                  "fields": [
+                    {
+                      "name": "data_security_mode",
+                      "expression": "`data_security_mode`"
+                    },
+                    {
+                      "name": "data_security_mode_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "data_security_mode",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_data_security_mode"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Data Security Mode"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "dc8d5c46",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_dbr_version",
+                "query": {
+                  "datasetName": "0ae67941",
+                  "fields": [
+                    {
+                      "name": "dbr_version",
+                      "expression": "`dbr_version`"
+                    },
+                    {
+                      "name": "dbr_version_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "dbr_version",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_dbr_version"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "DBR Version"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "86722f58",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_cluster_source",
+                "query": {
+                  "datasetName": "0ae67941",
+                  "fields": [
+                    {
+                      "name": "cluster_source",
+                      "expression": "`cluster_source`"
+                    },
+                    {
+                      "name": "cluster_source_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "cluster_source",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_cluster_source"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cluster Source"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "6b38a470",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_cluster_name",
+                "query": {
+                  "datasetName": "0ae67941",
+                  "fields": [
+                    {
+                      "name": "cluster_name",
+                      "expression": "`cluster_name`"
+                    },
+                    {
+                      "name": "cluster_name_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "cluster_name",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_cluster_name"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cluster Name"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "577df529",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_worker_count",
+                "query": {
+                  "datasetName": "0ae67941",
+                  "fields": [
+                    {
+                      "name": "min(worker_count)",
+                      "expression": "MIN(`worker_count`)"
+                    },
+                    {
+                      "name": "max(worker_count)",
+                      "expression": "MAX(`worker_count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "range-slider",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "worker_count",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_worker_count"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Worker Count"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 1,
+            "width": 2,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "a7a613ed",
+      "displayName": "Global Filters",
+      "layout": [
+        {
+          "widget": {
+            "name": "a633d164",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6ca8d9172db91fe421be41298e_date",
+                "query": {
+                  "datasetName": "ae7776ee",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_date",
+                "query": {
+                  "datasetName": "0ae67941",
+                  "fields": [
+                    {
+                      "name": "date",
+                      "expression": "`date`"
+                    },
+                    {
+                      "name": "date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "date",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6ca8d9172db91fe421be41298e_date"
+                  },
+                  {
+                    "fieldName": "date",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_date"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Date"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "d69edbbd",
+            "queries": [
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6ca8d9172db91fe421be41298e_meterCategory",
+                "query": {
+                  "datasetName": "ae7776ee",
+                  "fields": [
+                    {
+                      "name": "meterCategory",
+                      "expression": "`meterCategory`"
+                    },
+                    {
+                      "name": "meterCategory_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_meterCategory",
+                "query": {
+                  "datasetName": "0ae67941",
+                  "fields": [
+                    {
+                      "name": "meterCategory",
+                      "expression": "`meterCategory`"
+                    },
+                    {
+                      "name": "meterCategory_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "meterCategory",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6ca8d9172db91fe421be41298e_meterCategory"
+                  },
+                  {
+                    "fieldName": "meterCategory",
+                    "queryName": "dashboards/01f0ac6b8fb41077a3a57223e5203976/datasets/01f0ac6b8fb4190a990edd017b096c66_meterCategory"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Meter Category"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 1,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "genieSpace": {
+      "isEnabled": false
+    }
+  }
+}
