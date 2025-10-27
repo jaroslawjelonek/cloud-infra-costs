@@ -1,0 +1,880 @@
+{
+  "datasets": [
+    {
+      "name": "9190182f",
+      "displayName": "combined_data",
+      "queryLines": [
+        "WITH  billing_usage AS (\n",
+        " SELECT\n",
+        "   *\n",
+        " FROM\n",
+        "   system.billing.usage\n",
+        " WHERE\n",
+        "   -- EDIT: change these filters as needed to get your billing data\n",
+        "   workspace_id = '449150655131248'\n",
+        "   AND usage_date > '2025-02-01'\n",
+        "),\n",
+        "-- calculate list price cost of databricks usage by cluster\n",
+        "billing_usage_with_price AS (\n",
+        " SELECT\n",
+        "    usage_date,\n",
+        "    usage_start_time,\n",
+        "    billing_usage.sku_name,\n",
+        "    usage_metadata['job_id'] as job_id,\n",
+        "    usage_metadata ['cluster_id'] AS cluster_id,\n",
+        "    SUM(usage_quantity * pricing ['default']) AS usage_cost_dollars\n",
+        " FROM\n",
+        "   billing_usage\n",
+        "   LEFT JOIN system.billing.list_prices list_prices ON billing_usage.sku_name = list_prices.sku_name\n",
+        "   AND list_prices.cloud = 'AWS'\n",
+        "   AND list_prices.currency_code = 'USD'\n",
+        "   AND price_start_time <= usage_start_time\n",
+        "   AND (\n",
+        "     price_end_time IS NULL\n",
+        "     OR price_end_time >= usage_start_time\n",
+        "   )\n",
+        " GROUP BY\n",
+        "   ALL\n",
+        "),\n",
+        "-- get cloud infra cost by cluster\n",
+        "cloud_infra_cost AS (\n",
+        " SELECT\n",
+        "    usage_date,\n",
+        "    usage_start_time,\n",
+        "    usage_metadata ['cluster_id'] AS cluster_id,\n",
+        "    usage_metadata ['job_id'] AS job_id,\n",
+        "    SUM(CASE WHEN charge_type = 'Storage' THEN CASE\n",
+        "      WHEN :cloud_cost_type = 'Unblended' THEN unblended_cost\n",
+        "      WHEN :cloud_cost_type = 'Net unblended' THEN net_unblended_cost\n",
+        "      WHEN :cloud_cost_type = 'Amortized' THEN amortized_cost\n",
+        "      WHEN :cloud_cost_type = 'Net Amortized' THEN net_amortized_cost\n",
+        "      ELSE 0\n",
+        "    END ELSE 0 END) AS cloud_cost_storage_dollars,\n",
+        "    SUM(CASE WHEN charge_type = 'Compute' THEN CASE\n",
+        "      WHEN :cloud_cost_type = 'Unblended' THEN unblended_cost\n",
+        "      WHEN :cloud_cost_type = 'Net unblended' THEN net_unblended_cost\n",
+        "      WHEN :cloud_cost_type = 'Amortized' THEN amortized_cost\n",
+        "      WHEN :cloud_cost_type = 'Net Amortized' THEN net_amortized_cost\n",
+        "      ELSE 0\n",
+        "    END ELSE 0 END) AS cloud_cost_compute_dollars,\n",
+        "    SUM(CASE WHEN charge_type = 'Networking' THEN CASE\n",
+        "      WHEN :cloud_cost_type = 'Unblended' THEN unblended_cost\n",
+        "      WHEN :cloud_cost_type = 'Net unblended' THEN net_unblended_cost\n",
+        "      WHEN :cloud_cost_type = 'Amortized' THEN amortized_cost\n",
+        "      WHEN :cloud_cost_type = 'Net Amortized' THEN net_amortized_cost\n",
+        "      ELSE 0\n",
+        "    END ELSE 0 END) AS cloud_cost_networking_dollars,\n",
+        "    SUM(COALESCE(CASE\n",
+        "      WHEN :cloud_cost_type = 'Unblended' THEN unblended_cost\n",
+        "      WHEN :cloud_cost_type = 'Net unblended' THEN net_unblended_cost\n",
+        "      WHEN :cloud_cost_type = 'Amortized' THEN amortized_cost\n",
+        "      WHEN :cloud_cost_type = 'Net Amortized' THEN net_amortized_cost\n",
+        "      ELSE 0\n",
+        "    END,0)) AS total_cloud_cost_dollars\n",
+        " FROM users.daniel_martinez.aws_cost_and_usage_gold\n",
+        " GROUP BY ALL\n",
+        ")\n",
+        "-- join them together and get total cost\n",
+        "SELECT\n",
+        " \n",
+        " date_trunc(:granularity, COALESCE(billing_usage_with_price.usage_date,cloud_infra_cost.usage_date)) as usage_date,\n",
+        "  --COALESCE(billing_usage_with_price.usage_start_time,cloud_infra_cost.usage_start_time) as usage_start_time,\n",
+        "  COALESCE(billing_usage_with_price.sku_name, 'Not identified') as sku_name,\n",
+        "  COALESCE(billing_usage_with_price.job_id,cloud_infra_cost.job_id,'') as job_id,\n",
+        "  COALESCE(billing_usage_with_price.cluster_id,cloud_infra_cost.cluster_id) as cluster_id,\n",
+        "  SUM(COALESCE(billing_usage_with_price.usage_cost_dollars,0)) AS databricks_cost_dollars,\n",
+        "  --Net amortized as default but can change in dashboard\n",
+        "  SUM(COALESCE(cloud_cost_storage_dollars,0)) as cloud_cost_storage_dollars,\n",
+        "  SUM(COALESCE(cloud_cost_compute_dollars,0)) as cloud_cost_compute_dollars,\n",
+        "  SUM(COALESCE(cloud_cost_networking_dollars,0)) as cloud_cost_networking_dollars,\n",
+        "  SUM(COALESCE(total_cloud_cost_dollars,0)) as total_cloud_cost_dollars,\n",
+        "  SUM(COALESCE(billing_usage_with_price.usage_cost_dollars,0) + COALESCE(cloud_infra_cost.total_cloud_cost_dollars,0)) AS total_cost_dollars\n",
+        "FROM\n",
+        " billing_usage_with_price\n",
+        " FULL OUTER JOIN cloud_infra_cost \n",
+        "  ON billing_usage_with_price.cluster_id = cloud_infra_cost.cluster_id\n",
+        "  AND billing_usage_with_price.usage_date = cloud_infra_cost.usage_date \n",
+        "  --When there is a job ID use it, else just join on cluster and date\n",
+        "  AND \n",
+        "    CASE WHEN billing_usage_with_price.job_id IS NOT NULL \n",
+        "      THEN billing_usage_with_price.job_id = cloud_infra_cost.job_id\n",
+        "      ELSE TRUE\n",
+        "    END\n",
+        "GROUP BY\n",
+        " ALL"
+      ],
+      "parameters": [
+        {
+          "displayName": "cloud_cost_type",
+          "keyword": "cloud_cost_type",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Net Amortized"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "displayName": "granularity",
+          "keyword": "granularity",
+          "dataType": "STRING",
+          "defaultSelection": {
+            "values": {
+              "dataType": "STRING",
+              "values": [
+                {
+                  "value": "Day"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "c9c643a9",
+      "displayName": "cost_data",
+      "queryLines": [
+        "SELECT cost\n",
+        "FROM (VALUES ('Unblended'), ('Net Unblended'), ('Amortized'), ('Net Amortized')) AS costs(cost)"
+      ]
+    },
+    {
+      "name": "b19aacaf",
+      "displayName": "time_granularity",
+      "queryLines": [
+        "SELECT granularity\n",
+        "FROM (VALUES ('Day'), ('Week'), ('Month')) AS granularities(granularity)"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "47912631",
+      "displayName": "AWS Cost",
+      "layout": [
+        {
+          "widget": {
+            "name": "23ed1da5",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9190182f",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "sum(databricks_cost_dollars)",
+                      "expression": "SUM(`databricks_cost_dollars`)"
+                    },
+                    {
+                      "name": "sum(total_cloud_cost_dollars)",
+                      "expression": "SUM(`total_cloud_cost_dollars`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "usage_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "sum(databricks_cost_dollars)",
+                      "displayName": "Databricks"
+                    },
+                    {
+                      "fieldName": "sum(total_cloud_cost_dollars)",
+                      "displayName": "AWS"
+                    }
+                  ]
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Total Cost of Ownership"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "6b870634",
+            "queries": [
+              {
+                "name": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f0b05575131d1bbfd48dad02f1634a_cost",
+                "query": {
+                  "datasetName": "c9c643a9",
+                  "fields": [
+                    {
+                      "name": "cost",
+                      "expression": "`cost`"
+                    },
+                    {
+                      "name": "cost_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_cloud_cost_type",
+                "query": {
+                  "datasetName": "9190182f",
+                  "parameters": [
+                    {
+                      "name": "cloud_cost_type",
+                      "keyword": "cloud_cost_type"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "parameterName": "cloud_cost_type",
+                    "queryName": "parameter_dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_cloud_cost_type"
+                  },
+                  {
+                    "fieldName": "cost",
+                    "queryName": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f0b05575131d1bbfd48dad02f1634a_cost"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cost Type"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 4,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "9e3ab601",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9190182f",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "sum(cloud_cost_compute_dollars)",
+                      "expression": "SUM(`cloud_cost_compute_dollars`)"
+                    },
+                    {
+                      "name": "sum(cloud_cost_networking_dollars)",
+                      "expression": "SUM(`cloud_cost_networking_dollars`)"
+                    },
+                    {
+                      "name": "sum(cloud_cost_storage_dollars)",
+                      "expression": "SUM(`cloud_cost_storage_dollars`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "usage_date",
+                  "scale": {
+                    "type": "temporal"
+                  },
+                  "displayName": "Date"
+                },
+                "y": {
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "fields": [
+                    {
+                      "fieldName": "sum(cloud_cost_compute_dollars)",
+                      "displayName": "Compute (EC2)"
+                    },
+                    {
+                      "fieldName": "sum(cloud_cost_networking_dollars)",
+                      "displayName": "Networking (Egress + VPC)"
+                    },
+                    {
+                      "fieldName": "sum(cloud_cost_storage_dollars)",
+                      "displayName": "Storage (EBS)"
+                    }
+                  ]
+                },
+                "label": {
+                  "show": false
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cloud Infrastructure Cost"
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 5,
+            "width": 3,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "2507df1a",
+            "queries": [
+              {
+                "name": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_usage_date",
+                "query": {
+                  "datasetName": "9190182f",
+                  "fields": [
+                    {
+                      "name": "usage_date",
+                      "expression": "`usage_date`"
+                    },
+                    {
+                      "name": "usage_date_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "usage_date",
+                    "queryName": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_usage_date"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Date"
+              },
+              "selection": {
+                "defaultSelection": {
+                  "range": {
+                    "dataType": "DATETIME",
+                    "min": {
+                      "value": "now-3M/M"
+                    },
+                    "max": {
+                      "value": "now/M"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 4,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "2b9f27b9",
+            "queries": [
+              {
+                "name": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_cluster_id",
+                "query": {
+                  "datasetName": "9190182f",
+                  "fields": [
+                    {
+                      "name": "cluster_id",
+                      "expression": "`cluster_id`"
+                    },
+                    {
+                      "name": "cluster_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "cluster_id",
+                    "displayName": "cluster_id",
+                    "queryName": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_cluster_id"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cluster"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 4,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "480501cf",
+            "queries": [
+              {
+                "name": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_job_id",
+                "query": {
+                  "datasetName": "9190182f",
+                  "fields": [
+                    {
+                      "name": "job_id",
+                      "expression": "`job_id`"
+                    },
+                    {
+                      "name": "job_id_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "job_id",
+                    "displayName": "job_id",
+                    "queryName": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_job_id"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Job"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 4,
+            "width": 2,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "ddbc781f",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"font-size: 24px;font-family: Tahoma;\">**Databricks Cloud Infrastructure Cost (AWS)**</span>\n",
+                "\n",
+                "- <span style=\"font-size: 12px;font-family: Tahoma;\">This dashboard includes the cloud infrastructure cost related to AWS services leveraged by Databricks.</span>\n",
+                "- <span style=\"font-size: 12px;font-family: Tahoma;\">The cost includes cost related to EC2 instances and corresponding EBS Volumes (Storage) and networking components (data egress and VPC costs). The data does not include cost related to object storage (S3) and corresponding data egress from S3</span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "531da5ee",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "9190182f",
+                  "fields": [
+                    {
+                      "name": "sku_name",
+                      "expression": "`sku_name`"
+                    },
+                    {
+                      "name": "cluster_id",
+                      "expression": "`cluster_id`"
+                    },
+                    {
+                      "name": "job_id",
+                      "expression": "`job_id`"
+                    },
+                    {
+                      "name": "daily(usage_date)",
+                      "expression": "DATE_TRUNC(\"DAY\", `usage_date`)"
+                    },
+                    {
+                      "name": "sum(cloud_cost_compute_dollars)",
+                      "expression": "SUM(`cloud_cost_compute_dollars`)"
+                    },
+                    {
+                      "name": "sum(cloud_cost_networking_dollars)",
+                      "expression": "SUM(`cloud_cost_networking_dollars`)"
+                    },
+                    {
+                      "name": "sum(cloud_cost_storage_dollars)",
+                      "expression": "SUM(`cloud_cost_storage_dollars`)"
+                    },
+                    {
+                      "name": "sum(total_cloud_cost_dollars)",
+                      "expression": "SUM(`total_cloud_cost_dollars`)"
+                    },
+                    {
+                      "name": "sum(databricks_cost_dollars)",
+                      "expression": "SUM(`databricks_cost_dollars`)"
+                    },
+                    {
+                      "name": "sum(total_cost_dollars)",
+                      "expression": "SUM(`total_cost_dollars`)"
+                    }
+                  ],
+                  "cubeGroupingSets": {
+                    "sets": [
+                      {
+                        "fieldNames": [
+                          "sku_name",
+                          "cluster_id",
+                          "job_id"
+                        ]
+                      },
+                      {
+                        "fieldNames": [
+                          "daily(usage_date)"
+                        ]
+                      }
+                    ]
+                  },
+                  "disaggregated": false,
+                  "orders": [
+                    {
+                      "direction": "ASC",
+                      "expression": "`sku_name`"
+                    },
+                    {
+                      "direction": "ASC",
+                      "expression": "`cluster_id`"
+                    },
+                    {
+                      "direction": "ASC",
+                      "expression": "`job_id`"
+                    },
+                    {
+                      "direction": "ASC",
+                      "expression": "DATE_TRUNC(\"DAY\", `usage_date`)"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pivot",
+              "encodings": {
+                "rows": [
+                  {
+                    "fieldName": "sku_name",
+                    "displayName": "SKU"
+                  },
+                  {
+                    "fieldName": "cluster_id",
+                    "displayName": "Cluster ID"
+                  },
+                  {
+                    "fieldName": "job_id",
+                    "displayName": "Job ID"
+                  }
+                ],
+                "columns": [
+                  {
+                    "fieldName": "daily(usage_date)",
+                    "displayName": "Date"
+                  }
+                ],
+                "cell": {
+                  "type": "multi-cell",
+                  "fields": [
+                    {
+                      "fieldName": "sum(cloud_cost_compute_dollars)",
+                      "cellType": "text",
+                      "format": {
+                        "type": "number-currency",
+                        "currencyCode": "USD",
+                        "abbreviation": "none",
+                        "decimalPlaces": {
+                          "type": "exact",
+                          "places": 2
+                        },
+                        "hideGroupSeparator": true
+                      },
+                      "displayName": "AWS Compute"
+                    },
+                    {
+                      "fieldName": "sum(cloud_cost_networking_dollars)",
+                      "cellType": "text",
+                      "format": {
+                        "type": "number-currency",
+                        "currencyCode": "USD",
+                        "abbreviation": "none",
+                        "decimalPlaces": {
+                          "type": "exact",
+                          "places": 2
+                        },
+                        "hideGroupSeparator": true
+                      },
+                      "displayName": "AWS Networking"
+                    },
+                    {
+                      "fieldName": "sum(cloud_cost_storage_dollars)",
+                      "cellType": "text",
+                      "format": {
+                        "type": "number-currency",
+                        "currencyCode": "USD",
+                        "abbreviation": "none",
+                        "decimalPlaces": {
+                          "type": "exact",
+                          "places": 2
+                        },
+                        "hideGroupSeparator": true
+                      },
+                      "displayName": "AWS Storage"
+                    },
+                    {
+                      "fieldName": "sum(total_cloud_cost_dollars)",
+                      "cellType": "text",
+                      "format": {
+                        "type": "number-currency",
+                        "currencyCode": "USD",
+                        "abbreviation": "none",
+                        "decimalPlaces": {
+                          "type": "exact",
+                          "places": 2
+                        },
+                        "hideGroupSeparator": true
+                      },
+                      "displayName": "AWS Total"
+                    },
+                    {
+                      "fieldName": "sum(databricks_cost_dollars)",
+                      "cellType": "text",
+                      "format": {
+                        "type": "number-currency",
+                        "currencyCode": "USD",
+                        "abbreviation": "none",
+                        "decimalPlaces": {
+                          "type": "exact",
+                          "places": 2
+                        },
+                        "hideGroupSeparator": true
+                      },
+                      "displayName": "Databricks Total"
+                    },
+                    {
+                      "fieldName": "sum(total_cost_dollars)",
+                      "cellType": "text",
+                      "format": {
+                        "type": "number-currency",
+                        "currencyCode": "USD",
+                        "abbreviation": "none",
+                        "decimalPlaces": {
+                          "type": "exact",
+                          "places": 2
+                        },
+                        "hideGroupSeparator": true
+                      },
+                      "style": {
+                        "type": "color-scale",
+                        "backgroundColor": {
+                          "scale": {
+                            "type": "quantitative",
+                            "colorRamp": {
+                              "mode": "scheme",
+                              "scheme": "spectral"
+                            }
+                          }
+                        }
+                      },
+                      "displayName": "Total"
+                    }
+                  ],
+                  "displayAs": "columns"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Detailed cost"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 6,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "f3cb363d",
+            "queries": [
+              {
+                "name": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f0b0571db312aeafd5c089020ccedf_granularity",
+                "query": {
+                  "datasetName": "b19aacaf",
+                  "fields": [
+                    {
+                      "name": "granularity",
+                      "expression": "`granularity`"
+                    },
+                    {
+                      "name": "granularity_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "parameter_dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_granularity",
+                "query": {
+                  "datasetName": "9190182f",
+                  "parameters": [
+                    {
+                      "name": "granularity",
+                      "keyword": "granularity"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "granularity",
+                    "queryName": "dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f0b0571db312aeafd5c089020ccedf_granularity"
+                  },
+                  {
+                    "parameterName": "granularity",
+                    "queryName": "parameter_dashboards/01f0900004f71c25afdfafdb80b226c2/datasets/01f09000075116c8a84834293f79aace_granularity"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Granularity"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 3,
+            "width": 2,
+            "height": 1
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#000000"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#000000"
+      },
+      "widgetBorderColor": {
+        "light": "#000000",
+        "dark": "#00FF00"
+      },
+      "fontColor": {
+        "light": "#000000",
+        "dark": "#00FF00"
+      },
+      "selectionColor": {
+        "light": "#FF00FF",
+        "dark": "#FFFFFF"
+      },
+      "visualizationColors": [
+        "#EE7733",
+        "#0077BB",
+        "#33BBEE",
+        "#EE3377",
+        "#CC3311",
+        "#009988",
+        "#BBBBBB"
+      ],
+      "widgetHeaderAlignment": "LEFT"
+    },
+    "genieSpace": {
+      "isEnabled": false
+    }
+  }
+}
