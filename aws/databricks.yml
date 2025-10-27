@@ -30,13 +30,13 @@ variables:
     default: aws_cost_and_usage_tracking
   storage_location:
     description: "Folder within a Storage Account's Container where AWS Cost and Usage Reports (CUR) is exporting files to (ending with '/')"
-    default: s3://my-bucket-name/my-prefix/exports/my-report-name/
+    default: s3://daniel-martinez-databricks/cost-reports/exports/cost-data-exports-aws/
   warehouse_id:
     description: "Id of SQL warehouse that the dashboard uses"
-    default: aws_cost_and_usage_tracking
+    default: 862f1d757f0424f7
   job_alerts_email:
     description: "Email to send alerts in case of job failures"
-    default: aws_cost_and_usage_tracking
+    default: daniel.martinez@databricks.com
 
 targets:
   # The 'dev' target, for development purposes. This target is the default.
