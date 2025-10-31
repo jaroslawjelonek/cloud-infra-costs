@@ -1,9 +1,6 @@
-_TODO: Add limitations (S3 cost, resused clusters in jobs, reused instances)
-TODO: Add types of cost_
-
 # AWS Cost
 
-The 'aws_cost' project's purpose is to help enable customers to get TCO of their Databricks implementation including AWS infrastructure costs.  This then allows for using Databricks native tooling to process, vizualize, and augment the cost data with data in Databricks System Tables.
+The 'aws_cost' project's purpose is to help enable customers to get TCO of their Databricks implementation including AWS infrastructure costs.  This then allows for using Databricks native tooling to process, vizualize, and augment the cost data with data in Databricks System Tables. The accelerator allows for users to visualize the different types of AWS Cost (Unblended, Net Unblended, Amortized, Net Amortized).
 
 ## Key Outcomes:
 - AWS cost data including infrastructure, networking, and other costs in addition to Databricks costs.
@@ -88,3 +85,9 @@ _Note: AWS refreshes the data multiple times a day rewriting the data files for 
 7. For documentation on the Databricks asset bundles format used
    for this project, and for CI/CD configuration, see
    https://docs.databricks.com/dev-tools/bundles/index.html.
+
+### Limitations
+
+   - S3 Storage charges and corrsponding data egress is not included as those resources are not created by Databricks
+   - AWS Cost and Usage Reports only include the latest key value pair in resource tags (including Databricks propagated tags like cluster or job IDs). Therefore, when EC2 instances are reused in multiple clusters (e.g. in Databricks pools), the EC2 cost will be reflected on the latest cluster used by that instance.
+
