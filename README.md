@@ -1,19 +1,11 @@
-# REPO NAME 
+# Cloud Infra Costs 
+For classic compute today, customers struggle to report on TCO, because information is siloed between Azure/AWS cost reports (for cloud VM costs) & system tables (for granular DBU usage with attribution metadata). Customers are becoming increasingly familiar with Databricks system tables, yet are unfamiliar with the intricacies of Azure & AWS cost reports.
 
-```
-Placeholder
+This solution enables FinOps-conscious platform admins to better understand and report on the total infra (VM, networking, storage) and Databricks costs of their classic compute.
 
-Fill here a description at a functional level - what is this content doing
-```
-
-## Video Overview
-
-Include a GIF overview of what your project does. Use a service like Quicktime, Zoom or Loom to create the video, then convert to a GIF.
-
-
-## Installation
-
-Include details on how to use and install this content. 
+The solution is broken down into two pieces.  One for Azure Databricks customers and the other for customers deploying Databricks on AWS.  For instructions on how to setup this solution, please see the following:
+- [Azure](azure/README.md)
+- [AWS](aws/README.md)
 
 ## How to get help
 
