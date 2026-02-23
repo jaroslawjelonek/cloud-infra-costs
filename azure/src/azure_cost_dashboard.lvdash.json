@@ -180,7 +180,7 @@
         "    )\n",
         "  )\n",
         ") AS tag_key\n",
-        "FROM actuals_gold"
+        "FROM billing.azure.actuals_gold"
       ],
       "catalog": "billing",
       "schema": "azure"
